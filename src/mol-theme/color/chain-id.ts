@@ -101,6 +101,8 @@ export function ChainIdColorTheme(ctx: ThemeDataContext, props: PD.Values<ChainI
                 const k = getAsymIdKey(l, props.asymId);
                 serial = asymIdSerialMap.get(k);
             }
+            // hack TODO WARNING WIP
+            serial = 0;
             return serial === undefined ? DefaultColor : palette.color(serial);
         };
     } else {
