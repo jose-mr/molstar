@@ -22,6 +22,9 @@ void main() {
     float a2 = min(c3.g, c4.g);
     float visibility = min(a1, a2) > 0.001 ? 1.0 : 0.0;
     float mask = c0.r;
+    // .b carries the marker byte (normalized). The mask background is cleared to
+    // 1.0, and every marked value (highlight=1/255, select=2/255, channels >= 4/255)
+    // is < 1.0, so min() picks the marked neighbour's value over the background.
     float marker = min(c1.b, min(c2.b, min(c3.b, c4.b)));
     float fogAlpha = min(c1.a, min(c2.a, min(c3.a, c4.a)));
     gl_FragColor = vec4(visibility, mask, marker, fogAlpha);

@@ -12,6 +12,7 @@ import { WebGLContext } from './webgl/context';
 import { Mat4, Vec3, Vec4, Vec2 } from '../mol-math/linear-algebra';
 import { GraphicsRenderable } from './renderable';
 import { Color } from '../mol-util/color';
+import { MarkerPaletteSize } from '../mol-util/marker-action';
 import { ValueCell, deepEqual } from '../mol-util';
 import { GlobalUniformValues } from './renderable/schema';
 import { GraphicsRenderVariant } from './webgl/render-item';
@@ -90,6 +91,25 @@ interface Renderer {
     dispose: () => void
 }
 
+// Default colors for the marker channel palette (ezMechanism extension). The
+// fill tint for channel byte value `4 + 2*index` is taken from index `index`.
+const DefaultMarkerPalette: Color[] = [
+    Color(0x21C521), Color(0xF59E0B), Color(0x3B82F6), Color(0xEC4899),
+    Color(0x06B6D4), Color(0xF97316), Color(0xA855F7), Color(0xEF4444),
+];
+
+function getMarkerPalette(colors: Color[]): number[] {
+    const out = new Array(MarkerPaletteSize * 3).fill(0) as number[];
+    const v = Vec3();
+    for (let i = 0; i < MarkerPaletteSize; ++i) {
+        Color.toVec3Normalized(v, colors[i] ?? Color(0x000000));
+        out[i * 3] = v[0];
+        out[i * 3 + 1] = v[1];
+        out[i * 3 + 2] = v[2];
+    }
+    return out;
+}
+
 export const RendererParams = {
     backgroundColor: PD.Color(Color(0x000000), { description: 'Background color of the 3D canvas' }),
 
@@ -107,6 +127,7 @@ export const RendererParams = {
     selectStrength: PD.Numeric(0.3, { min: 0.0, max: 1.0, step: 0.1 }),
     dimStrength: PD.Numeric(0.0, { min: 0.0, max: 1.0, step: 0.1 }),
     markerPriority: PD.Select(1, [[1, 'Highlight'], [2, 'Select']]),
+    markerPalette: PD.Value<Color[]>(DefaultMarkerPalette, { isHidden: true }),
 
     xrayEdgeFalloff: PD.Numeric(1, { min: 0.0, max: 3.0, step: 0.1 }),
     celSteps: PD.Numeric(5, { min: 2, max: 16, step: 1 }),
@@ -256,6 +277,7 @@ namespace Renderer {
             uDimStrength: ValueCell.create(p.dimStrength),
             uMarkerPriority: ValueCell.create(p.markerPriority),
             uMarkerAverage: ValueCell.create(0),
+            uMarkerPalette: ValueCell.create(getMarkerPalette(p.markerPalette)),
 
             uXrayEdgeFalloff: ValueCell.create(p.xrayEdgeFalloff),
             uCelSteps: ValueCell.create(p.celSteps),
@@ -836,6 +858,10 @@ namespace Renderer {
                 if (props.markerPriority !== undefined && props.markerPriority !== p.markerPriority) {
                     p.markerPriority = props.markerPriority;
                     ValueCell.update(globalUniforms.uMarkerPriority, p.markerPriority);
+                }
+                if (props.markerPalette !== undefined && props.markerPalette !== p.markerPalette) {
+                    p.markerPalette = props.markerPalette;
+                    ValueCell.update(globalUniforms.uMarkerPalette, getMarkerPalette(p.markerPalette));
                 }
 
                 if (props.xrayEdgeFalloff !== undefined && props.xrayEdgeFalloff !== p.xrayEdgeFalloff) {

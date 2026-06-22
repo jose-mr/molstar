@@ -167,6 +167,7 @@ export const GlobalUniformSchema = {
     uDimStrength: UniformSpec('f'),
     uMarkerPriority: UniformSpec('i'),
     uMarkerAverage: UniformSpec('f'),
+    uMarkerPalette: UniformSpec('v3[]'),
 
     uXrayEdgeFalloff: UniformSpec('f'),
     uCelSteps: UniformSpec('f'),

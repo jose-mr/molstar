@@ -16,7 +16,7 @@ import { Theme } from '../../mol-theme/theme';
 import { Task } from '../../mol-task';
 import { PickingId } from '../../mol-geo/geometry/picking';
 import { Loci, EmptyLoci, isEmptyLoci, isEveryLoci, isDataLoci, EveryLoci } from '../../mol-model/loci';
-import { MarkerAction, MarkerActions, applyMarkerAction } from '../../mol-util/marker-action';
+import { MarkerAction, MarkerActions, MarkerChannelMin, applyMarkerAction } from '../../mol-util/marker-action';
 import { Overpaint } from '../../mol-theme/overpaint';
 import { Transparency } from '../../mol-theme/transparency';
 import { Mat4, EPSILON } from '../../mol-math/linear-algebra';
@@ -208,7 +208,9 @@ export function UnitsRepresentation<P extends StructureParams>(label: string, ct
 
     function mark(loci: Loci, action: MarkerAction) {
         if (!_structure) return false;
-        if (!MarkerActions.is(_state.markerActions, action)) return false;
+        // Channel marks (>= MarkerChannelMin) are an ezMechanism extension not in
+        // the legacy markerActions bitflags; let them through.
+        if (action < MarkerChannelMin && !MarkerActions.is(_state.markerActions, action)) return false;
         if (Structure.isLoci(loci) || StructureElement.Loci.is(loci) || Bond.isLoci(loci)) {
             if (!Structure.areRootsEquivalent(loci.structure, _structure)) return false;
             // Remap `loci` from equivalent structure to the current `_structure`

@@ -21,6 +21,26 @@ import { RenderTarget } from '../../mol-gl/webgl/render-target';
 import { Color } from '../../mol-util/color';
 import { edge_frag } from '../../mol-gl/shader/marking/edge.frag';
 import { isTimingMode } from '../../mol-util/debug';
+import { MarkerPaletteSize } from '../../mol-util/marker-action';
+
+// Default edge-glow colors for the marker channel palette (ezMechanism
+// extension); kept in sync with `DefaultMarkerPalette` in mol-gl/renderer.
+const DefaultMarkerEdgePalette: Color[] = [
+    Color(0x21C521), Color(0xF59E0B), Color(0x3B82F6), Color(0xEC4899),
+    Color(0x06B6D4), Color(0xF97316), Color(0xA855F7), Color(0xEF4444),
+];
+
+function packMarkerPalette(colors: Color[]): number[] {
+    const out = new Array(MarkerPaletteSize * 3).fill(0) as number[];
+    const v = Vec3();
+    for (let i = 0; i < MarkerPaletteSize; ++i) {
+        Color.toVec3Normalized(v, colors[i] ?? Color(0x000000));
+        out[i * 3] = v[0];
+        out[i * 3 + 1] = v[1];
+        out[i * 3 + 2] = v[2];
+    }
+    return out;
+}
 
 export const MarkingParams = {
     enabled: PD.Boolean(true),
@@ -29,6 +49,7 @@ export const MarkingParams = {
     edgeScale: PD.Numeric(1, { min: 1, max: 3, step: 1 }, { description: 'Thickness of the edge.' }),
     highlightEdgeStrength: PD.Numeric(1.0, { min: 0, max: 1, step: 0.1 }),
     selectEdgeStrength: PD.Numeric(1.0, { min: 0, max: 1, step: 0.1 }),
+    markerEdgePalette: PD.Value<Color[]>(DefaultMarkerEdgePalette, { isHidden: true }),
     ghostEdgeStrength: PD.Numeric(0.3, { min: 0, max: 1, step: 0.1 }, { description: 'Opacity of the hidden edges that are covered by other geometry. When set to 1, one less geometry render pass is done.' }),
     innerEdgeFactor: PD.Numeric(1.5, { min: 0, max: 3, step: 0.1 }, { description: 'Factor to multiply the inner edge color with - for added contrast.' }),
 };
@@ -103,7 +124,7 @@ export class MarkingPass {
     }
 
     update(props: MarkingProps) {
-        const { highlightEdgeColor, selectEdgeColor, edgeScale, innerEdgeFactor, ghostEdgeStrength, highlightEdgeStrength, selectEdgeStrength } = props;
+        const { highlightEdgeColor, selectEdgeColor, edgeScale, innerEdgeFactor, ghostEdgeStrength, highlightEdgeStrength, selectEdgeStrength, markerEdgePalette } = props;
 
         const { values: edgeValues } = this.edge;
         const _edgeScale = Math.max(1, Math.round(edgeScale * this.webgl.pixelRatio));
@@ -119,6 +140,7 @@ export class MarkingPass {
         ValueCell.updateIfChanged(overlayValues.uGhostEdgeStrength, ghostEdgeStrength);
         ValueCell.updateIfChanged(overlayValues.uHighlightEdgeStrength, highlightEdgeStrength);
         ValueCell.updateIfChanged(overlayValues.uSelectEdgeStrength, selectEdgeStrength);
+        ValueCell.update(overlayValues.uMarkerEdgePalette, packMarkerPalette(markerEdgePalette));
     }
 
     render(viewport: Viewport, target: RenderTarget | undefined) {
@@ -178,6 +200,7 @@ const OverlaySchema = {
     uSelectEdgeStrength: UniformSpec('f'),
     uGhostEdgeStrength: UniformSpec('f'),
     uInnerEdgeFactor: UniformSpec('f'),
+    uMarkerEdgePalette: UniformSpec('v3[]'),
 };
 const OverlayShaderCode = ShaderCode('overlay', quad_vert, overlay_frag);
 type OverlayRenderable = ComputeRenderable<Values<typeof OverlaySchema>>
@@ -196,6 +219,7 @@ function getOverlayRenderable(ctx: WebGLContext, edgeTexture: Texture): OverlayR
         uSelectEdgeStrength: ValueCell.create(1),
         uGhostEdgeStrength: ValueCell.create(0),
         uInnerEdgeFactor: ValueCell.create(0),
+        uMarkerEdgePalette: ValueCell.create(packMarkerPalette(DefaultMarkerEdgePalette)),
     };
 
     const schema = { ...OverlaySchema };

@@ -35,6 +35,7 @@ uniform vec4 uLod;
     uniform float uDimStrength;
     uniform int uMarkerPriority;
     uniform float uMarkerAverage;
+    uniform vec3 uMarkerPalette[8]; // marker channel colors (ezMechanism)
 #endif
 
 #if defined(dNeedsMarker)

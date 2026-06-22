@@ -18,6 +18,26 @@ export enum MarkerAction {
     Clear = 0x20
 }
 
+/**
+ * Channel marks (ezMechanism extension)
+ *
+ * The per-element marker is a full byte, of which Mol* natively uses only the
+ * low two bits (highlight = 1, select = 2). Values >= 4 are used as independent
+ * "select channels": each even value is a channel whose color comes from a
+ * palette (see `uMarkerPalette` / `uMarkerEdgePalette`). Use even values only so
+ * the hover behavior's bit-0 toggle (`|= 1` / `&= ~1`) never corrupts a channel.
+ *
+ * A channel mark is encoded as an action `>= 0x100` carrying the byte value in
+ * the high bits (i.e. `value << 8`), so it flows through the unchanged mark
+ * pipeline (`Canvas3D.mark -> repr.mark -> Visual.mark -> applyMarkerAction`).
+ */
+export const MarkerChannelMin = 0x100;
+/** Number of channel colors in the marker palette (`uMarkerPalette` size). */
+export const MarkerPaletteSize = 8;
+function markerChannelValue(action: MarkerAction): number {
+    return action >> 8;
+}
+
 export type MarkerActions = BitFlags<MarkerAction>
 export namespace MarkerActions {
     export const is: (m: MarkerActions, f: MarkerAction) => boolean = BitFlags.has;
@@ -52,6 +72,7 @@ export function setMarkerValue(array: Uint8Array, status: 0 | 1 | 2 | 3, count: 
 }
 
 export function applyMarkerActionAtPosition(array: Uint8Array, i: number, action: MarkerAction) {
+    if (action >= MarkerChannelMin) { array[i] = markerChannelValue(action); return; }
     switch (action) {
         case MarkerAction.Highlight: array[i] |= 1; break;
         case MarkerAction.RemoveHighlight: array[i] &= ~1; break;
@@ -64,6 +85,18 @@ export function applyMarkerActionAtPosition(array: Uint8Array, i: number, action
 
 export function applyMarkerAction(array: Uint8Array, set: OrderedSet, action: MarkerAction) {
     if (action === MarkerAction.None) return false;
+
+    // Channel marks set an arbitrary byte value, so the bit-parallel uint32 fast
+    // path below does not apply; write each position directly.
+    if (action >= MarkerChannelMin) {
+        const value = markerChannelValue(action);
+        if (Interval.is(set)) {
+            for (let i = Interval.start(set), e = Interval.end(set); i < e; ++i) array[i] = value;
+        } else {
+            for (let i = 0, il = set.length; i < il; ++i) array[set[i]] = value;
+        }
+        return true;
+    }
 
     if (Interval.is(set)) {
         const start = Interval.start(set);
@@ -233,6 +266,9 @@ export function getMarkerInfo(action: MarkerAction, currentStatus: MarkerInfo['s
  * neither the empty set nor the full set.
  */
 export function getPartialMarkerAverage(action: MarkerAction, currentStatus: MarkerInfo['status']) {
+    // Channel marks have no closed-form partial average; let the caller recompute
+    // it from the marker array (returning -1 triggers getMarkersAverage).
+    if (action >= MarkerChannelMin) return -1;
     switch (action) {
         case MarkerAction.Highlight:
             return 0.5;

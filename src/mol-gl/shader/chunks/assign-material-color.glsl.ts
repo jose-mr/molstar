@@ -95,12 +95,14 @@ export const assign_material_color = `
         if (uMarkingDepthTest) {
             depthTest = (fragmentDepth >= getDepthPacked(gl_FragCoord.xy / uDrawingBufferSize)) ? 1.0 : 0.0;
         }
-        bool isHighlight = intMod(marker, 2.0) > 0.1;
         float viewZ = depthToViewZ(uIsOrtho, fragmentDepth, uNear, uFar);
         float fogFactor = smoothstep(uFogNear, uFogFar, abs(viewZ));
         if (fogFactor == 1.0)
             discard;
-        material = vec4(0.0, depthTest, isHighlight ? 1.0 : 0.0, 1.0 - fogFactor);
+        // .b carries the full marker byte (normalized) so the overlay can map
+        // channel values (>= 4) to palette colors (ezMechanism); legacy
+        // highlight=1 / select=2 still decode correctly.
+        material = vec4(0.0, depthTest, marker / 255.0, 1.0 - fogFactor);
     }
 #elif defined(dRenderVariant_emissive)
     float emissive = uEmissive;
